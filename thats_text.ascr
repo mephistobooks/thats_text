@@ -1,0 +1,122 @@
+#! /usr/bin/osascript
+# thats_text.applescript
+#
+#
+#
+
+
+global pbpaste_cmd
+global pbcopy_cmd
+
+on run
+
+    set pbpaste_cmd to "__CF_USER_TEXT_ENCODING=\"0x1F5:0x08000100:14\" pbpaste"
+    set pbcopy_cmd to "__CF_USER_TEXT_ENCODING=\"0x1F5:0x08000100:14\" pbcopy"
+
+    # config.
+    #
+    #
+    set editor_cmd to "/Applications/MacVim.app/Contents/MacOS/MacVim"
+    -- set editor_cmd to "/usr/local/bin/emacs"
+    -- set editor_cmd to "/Applications/Visual Studio Code.app/Contents/MacOS/Electron"
+
+
+    # prepare the temp file.
+    #
+    #
+    set tmp_dir to do shell script "ruby -e \"puts ENV['TMPDIR']\""
+    if tmp_dir is equal to ""
+        set tmp_dir to "/var/tmp/"
+    end
+
+    tell application "Safari"
+        set current_url to get URL of current tab of window 1
+        # set the clipboard to do shell script "echo " & current_url & " | sed -e 's@[^-.a-zA-Z0-9]@@g'"
+        set tmp_file to do shell script "echo '" & current_url & "' | sed -e 's@&.*$@@g' | sed -e 's@[^-a-zA-Z0-9]@@g'"
+    end tell
+
+    set time_id to do shell script "date +%Y%m%d_%H%M%S"
+    set tmp_file to tmp_dir & "/" & tmp_file & "-" & time_id & ".txt"
+    #return tmp_file
+
+    # main.
+    #
+    #
+    textarea_to_file(tmp_file)
+    edit_file_and_copy(editor_cmd,tmp_file)
+    paste_to_textarea()
+
+end run
+
+####
+
+# write clipboard contents out to a file.
+#
+#
+on textarea_to_file( path_to_file )
+
+    set dt to 0.3
+    set the clipboard to ""
+    tell application "System Events"
+        tell process "Safari"
+            set frontmost to true
+            delay dt
+            keystroke "a" using {command down}
+            delay dt
+            keystroke "c" using {command down}
+            delay dt
+        end tell
+    end tell
+
+    -- pbpaste/pbcopy は、文字コードを変えてしまうようだ
+    -- よって、そのままでは使えない
+    -- do shell script "pbpaste > " & path_to_file
+    -- __CF_USER_TEXT_ENCODING="0x1F5:0x08000100:14"
+    -- do shell script "__CF_USER_TEXT_ENCODING=\"0x1F5:0x08000100:14\" pbpaste > " & path_to_file
+    do shell script pbpaste_cmd & " > " & path_to_file
+
+    -- set fp to (open for access path_to_file with write permission)
+    -- set clipped_data to the clipboard
+    -- set eof fp to 0
+    -- write clipped_data to fp
+    -- close access fp
+end
+
+
+# edit the temp file and copy it into clipboard.
+#
+#
+on edit_file_and_copy( editor_cmd, path_to_file )
+
+    do shell script "\"" & editor_cmd & "\"" & " " & path_to_file
+
+    set the clipboard to ""
+    do shell script "cat " & path_to_file & " | " & pbcopy_cmd
+    -- set fp to open for access file path_to_file
+    -- set the clipboard to read fp
+    -- close access fp
+
+end
+
+
+# paste clipboard contents to textarea.
+#
+#
+on paste_to_textarea()
+
+    set dt to 0.3
+    tell application "System Events"
+        tell process "Safari"
+            set frontmost to true
+            delay dt
+            keystroke "a" using {command down}
+            delay dt
+            keystroke "v" using {command down}
+            delay dt
+        end tell
+    end tell
+
+end
+
+
+####
